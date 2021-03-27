@@ -2,11 +2,12 @@ package org.company.temperature
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.{Dataset, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Dataset, Encoders, Row, SparkSession}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.streaming.OutputMode.{Append, Complete, Update}
 
 
 object Main extends App {
@@ -39,39 +40,33 @@ object Main extends App {
 
   val skipPattern = Config().getString("xml.skip.pattern")
 
-  val data = lines
-    .filter(line=> !line.startsWith(skipPattern))
-    .reduce(_ + " " + _)
-    .flatMap(_.split("<data>").toList)
-    .filter(_.nonEmpty)
-    .map("<data>"+_)
-    .flatMap(parseXML(_))
+//  val data = lines
+//    .filter(line=> !line.startsWith(skipPattern))
+//    .reduce(_ + " " + _)
+//    .flatMap(_.split("<data>").toList)
+//    .filter(_.nonEmpty)
+//    .map("<data>"+_)
+//    .flatMap(parseXML(_))
+//
+//  data.print()
 
-  data.print()
+//  data.foreachRDD(rdd => {
+//    val windowSpec = Window.partitionBy(col("city")).orderBy(col("measured_at_ts") desc_nulls_last)
+//    ds_vis = (ds_vis union rdd.toDS())
+//              .withColumn("row_number",row_number over windowSpec)
+//              .filter("row_number == 1")
+//              .drop("row_number")
+//              .as[Measurement]
+//    ds_vis.cache().show()
+//  })
 
-  data.foreachRDD(rdd => {
-    print("######foreachRDD")
-    ds_vis = ds_vis union rdd.toDS()
-    val byBucket = Window.partitionBy(col("city")).orderBy(col("measured_at_ts") desc_nulls_last)
-    ds_vis.show()
-    ds_vis = ds_vis.withColumn("row_number",row_number over byBucket).filter("row_number == 1").drop("row_number").as[Measurement]
-    ds_vis.cache().show()
-  })
-
-  ssc.start()
-  ssc.awaitTermination()
+//  ssc.start()
+//  ssc.awaitTermination()
 
   println("Another solution below")
 
-//  line.foreachRDD {
-//    RDD =>
-//      val spark: SparkSession = SparkSession.builder.master("local[3]").appName("SparkByExamples").getOrCreate()
-//      spark.sparkContext.setLogLevel("ERROR")
-//      import spark.implicits._
-//  }
-
 //val spark:SparkSession = SparkSession.builder.master("local[3]").appName("SparkByExamples").getOrCreate()
-  //  spark.sparkContext.setLogLevel("ERROR")
+    spark.sparkContext.setLogLevel("ERROR")
 //  import spark.implicits._
 //  spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
@@ -79,22 +74,46 @@ object Main extends App {
 
 
 
-//  val consumer = spark.readStream
-//    .option("maxFilesPerTrigger", 1)
-//    .textFile(path.toString)
-//    .agg(collect_list("value"))
-//
-//  val producer = consumer.writeStream
-//    .format("console")
-//    .option("truncate", value = false)
-//    .option("numRows", 1000)
-//    .outputMode(Complete) // <-- update output mode
-//
-//
-////  val producer = consumer.writeStream.format("console").option("truncate", value = false).option("numRows", 1000).outputMode(Complete) // <-- update output mode
-//
-//
-//  producer.start.awaitTermination()
+  def mkString2(xml:Seq[String]): Seq[String] = {
+      xml
+        .mkString(" ")
+        .split("<data>")
+        .filter(_.nonEmpty)
+        .map("<data>"+_)
+
+  }
+
+  val mkString2UDF=udf(mkString2 _)
+
+  val consumer = spark.readStream
+    .option("maxFilesPerTrigger", 2)
+    .textFile(dataPathString)
+    .filter(line=> !line.startsWith(skipPattern))
+    .withColumn("rank",  lit(1))
+    .groupBy("rank")
+    .agg(collect_list("value").as("lst"))
+    .withColumn("hop", mkString2UDF(col("lst")))
+    .select(col("rank"), explode(col("hop")).as("tap"))
+    .select("tap")
+    .flatMap(r => parseXML(r.getString(0)))
+
+  val windowSpec = Window.partitionBy(col("city")).orderBy(col("measured_at_ts") desc_nulls_last)
+
+//    val df = consumer
+//    .withColumn("row_number", row_number over windowSpec)
+//    .filter("row_number == 1")
+//    .drop("row_number")
+//    .as[Measurement]
+
+
+  val producer = consumer.writeStream
+    .format("console")
+    .option("truncate", value = false)
+    .option("numRows", 10)
+    .outputMode(Update) // <-- update output mode
+
+
+  producer.start.awaitTermination()
 
 
 
