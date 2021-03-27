@@ -17,9 +17,7 @@ object Main extends App {
 //  val path = new org.apache.hadoop.fs.Path(pathString)
 
 
-
-
-  val spark:SparkSession = SparkSession
+  implicit val spark:SparkSession = SparkSession
     .builder
     .master(Config().getString("spark.master"))
     .appName(Config().getString("spark.app.name"))
@@ -41,7 +39,7 @@ object Main extends App {
     .flatMap(_.split("<data>").toList)
     .filter(_.nonEmpty)
     .map("<data>"+_)
-    .flatMap(parseXML(_, spark))
+    .flatMap(parseXML(_))
 
   data.print()
 

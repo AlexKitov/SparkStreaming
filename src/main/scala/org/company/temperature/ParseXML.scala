@@ -11,19 +11,20 @@ import java.io.BufferedOutputStream
 import scala.util.{Failure, Success, Try}
 
 object ParseXML {
+  private val xmlStrExample =
+    """<data>
+      |    <city>London</city>
+      |    <temperature>
+      |        <value unit="celsius">25</value>
+      |        <value unit="fahrenheit">77.5</value>
+      |    </temperature>
+      |    <measured_at_ts>2020-08-02T18:02:00</measured_at_ts>
+      |</data>""".stripMargin
+
+
 
   val xmlDateFormat = conf.getString("xml.in.date.format")
   val failedPath = conf.getString("hdfs.path.failPath")
-
-  private val xmlStrExample =
-               """<data>
-                 |    <city>London</city>
-                 |    <temperature>
-                 |        <value unit="celsius">25</value>
-                 |        <value unit="fahrenheit">77.5</value>
-                 |    </temperature>
-                 |    <measured_at_ts>2020-08-02T18:02:00</measured_at_ts>
-                 |</data>""".stripMargin
 
   def strToDate(dateTime: String): DateTime = {
     val dtf: DateTimeFormatter = DateTimeFormat.forPattern(xmlDateFormat);
@@ -34,6 +35,18 @@ object ParseXML {
   def newDateFileNameString(): String = {
     val dtf: DateTimeFormatter = DateTimeFormat.forPattern("yyyyMMddHHmmss_SSS");
     new DateTime().toString(dtf)
+  }
+
+  def parseXML(xmlStr: String)(implicit ss:SparkSession): Option[Measurement] = {
+    val maybeMeasurement = parseNode(xmlStr)
+    maybeMeasurement match  {
+      case Success(measurement) => Some(measurement)
+      case Failure(e) => {
+        handleError(xmlStr, e)
+        println(s"### ERROR: '$e'")
+        None
+      }
+    }
   }
 
   def parseNode(xmlStr: String): Try[Measurement] =
@@ -58,7 +71,7 @@ object ParseXML {
     })
 
   // TODO Simplify this config
-  def handleError(text: String, e: Throwable, ss: SparkSession): Unit = {
+  def handleError(text: String, e: Throwable)(implicit ss:SparkSession): Unit = {
 //    val printer = new scala.xml.PrettyPrinter(80, 2)
     val fsConf: Configuration = new Configuration(ss.sparkContext.hadoopConfiguration)
     fsConf.setInt("dfs.blocksize", 16 * 1024 * 1024) // 16MB HDFS Block Size
@@ -74,18 +87,6 @@ object ParseXML {
     out.flush()
     out.close()
     fs.close()
-  }
-
-  def parseXML(xmlStr: String, ss: SparkSession): Option[Measurement] = {
-    val maybeMeasurement = parseNode(xmlStr)
-    maybeMeasurement match  {
-      case Success(measurement) => Some(measurement)
-      case Failure(e) => {
-        handleError(xmlStr, e, ss)
-        println(s"### ERROR: '$e'")
-        None
-      }
-    }
   }
 
 }
