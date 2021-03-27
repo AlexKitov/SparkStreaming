@@ -9,13 +9,14 @@ import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 
 import java.io.BufferedOutputStream
 import scala.util.{Failure, Success, Try}
-import scala.xml.{Elem, NodeSeq}
 
 object ParseXML {
 
+  val xmlDateFormat = conf.getString("xml.in.date.format")
   val failedPath = conf.getString("hdfs.path.failPath")
-  private val xmlStr = """<?xml version="1.0" encoding="UTF-8"?>
-                 |<data>
+
+  private val xmlStrExample =
+               """<data>
                  |    <city>London</city>
                  |    <temperature>
                  |        <value unit="celsius">25</value>
@@ -25,13 +26,19 @@ object ParseXML {
                  |</data>""".stripMargin
 
   def strToDate(dateTime: String): DateTime = {
-    val dtf: DateTimeFormatter = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss");
+    val dtf: DateTimeFormatter = DateTimeFormat.forPattern(xmlDateFormat);
     val jodatime: DateTime = dtf.parseDateTime(dateTime);
     jodatime
   }
 
-  def parseNode(node: scala.xml.Node): Try[Measurement] =
+  def newDateFileNameString(): String = {
+    val dtf: DateTimeFormatter = DateTimeFormat.forPattern("yyyyMMddHHmmss_SSS");
+    new DateTime().toString(dtf)
+  }
+
+  def parseNode(xmlStr: String): Try[Measurement] =
     Try({
+      val node = scala.xml.XML.loadString(xmlStr)
       val city = (node \\ "city").head.text
       val tempAndUnit = (node \\ "temperature")
       val measured_at_ts = strToDate((node \\ "measured_at_ts").head.text)
@@ -47,74 +54,38 @@ object ParseXML {
         .toMap
         .withDefaultValue(None)
 
-
       Measurement(city, tempMap("celsius"), tempMap("fahrenheit"), measured_at_ts)
     })
 
-  // TODO split into multiple functions
-  def handleError(node: scala.xml.Node, e: Throwable, ss: SparkSession): Unit = {
-    val printer = new scala.xml.PrettyPrinter(80, 2)
-    val path = new Path(s"${failedPath}/failed.txt")
-    val conf: Configuration = new Configuration(ss.sparkContext.hadoopConfiguration)
-    conf.setInt("dfs.blocksize", 16 * 1024 * 1024) // 16MB HDFS Block Size
-    val fs = path.getFileSystem(conf)
-    if (fs.exists(path))
-      fs.delete(path, true)
-    val out = new BufferedOutputStream(fs.create(path))
-    out.write(s"${printer.format(node)}\n\nERROR>$e\n".toString.getBytes("UTF-8"))
-    out.flush()
-    out.close()
-    fs.close()
-  }
+  // TODO Simplify this config
+  def handleError(text: String, e: Throwable, ss: SparkSession): Unit = {
+//    val printer = new scala.xml.PrettyPrinter(80, 2)
+    val fsConf: Configuration = new Configuration(ss.sparkContext.hadoopConfiguration)
+    fsConf.setInt("dfs.blocksize", 16 * 1024 * 1024) // 16MB HDFS Block Size
 
-  def writeError(text: String, e: Throwable, ss: SparkSession): Unit = {
-    val path = new Path(s"${failedPath}/failed.txt")
-    val conf: Configuration = new Configuration(ss.sparkContext.hadoopConfiguration)
-    conf.setInt("dfs.blocksize", 16 * 1024 * 1024) // 16MB HDFS Block Size
-    val fs = path.getFileSystem(conf)
+    val path = new Path(s"${failedPath}/${newDateFileNameString()}.txt")
+    val fs = path.getFileSystem(fsConf)
     if (fs.exists(path))
       fs.delete(path, true)
     val out = new BufferedOutputStream(fs.create(path))
+//    out.write(s"${printer.format(text)}\nERROR > $e".getBytes("UTF-8"))
     out.write(s"$text\nERROR > $e".getBytes("UTF-8"))
+
     out.flush()
     out.close()
     fs.close()
   }
 
-  def parseData(node: scala.xml.Node, ss: SparkSession): Try[Measurement] = {
-    val maybeMeasurement = parseNode(node)
+  def parseXML(xmlStr: String, ss: SparkSession): Option[Measurement] = {
+    val maybeMeasurement = parseNode(xmlStr)
     maybeMeasurement match  {
-      case Success(measurement) => Success(measurement)
+      case Success(measurement) => Some(measurement)
       case Failure(e) => {
-        handleError(node, e, ss)
-        println("### Some error: ")
-        println(e)
-        Failure(e)
+        handleError(xmlStr, e, ss)
+        println(s"### ERROR: '$e'")
+        None
       }
     }
-  }
-  def parseXML (xmlStr: String, ss: SparkSession): Seq[Measurement] = {
-    val xml = Try(scala.xml.XML.loadString(xmlStr))
-
-    xml match {
-      case Failure(e) => {
-        writeError(xmlStr, e, ss)
-        println("### BIG error: ")
-        println(e)
-        Seq[Measurement]()
-      }
-      case Success(xml) => {
-        val data = for {
-          node <- xml \\ "data"
-        } yield parseData(node, ss)
-
-        (xml \\ "data")
-          .map(parseData(_, ss))
-          .filter(_.isSuccess)
-          .map{case Success(value) => value}
-      }
-    }
-
   }
 
 }

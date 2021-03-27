@@ -41,8 +41,7 @@ object Main extends App {
     .flatMap(_.split("<data>").toList)
     .filter(_.nonEmpty)
     .map("<data>"+_)
-    .map(parseXML(_, spark))
-    .flatMap(identity)
+    .flatMap(parseXML(_, spark))
 
   data.print()
 
