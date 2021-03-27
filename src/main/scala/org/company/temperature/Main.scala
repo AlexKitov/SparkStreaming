@@ -1,10 +1,13 @@
 package org.company.temperature
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
+import org.apache.spark.sql.functions._
+
 
 object Main extends App {
   println( "Hello World!" )
@@ -27,7 +30,7 @@ object Main extends App {
 
   spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
-  val ds_vis: Dataset[Measurement] = spark.createDataset(Seq.empty[Measurement])
+  var ds_vis: Dataset[Measurement] = spark.createDataset(Seq.empty[Measurement])
   val pollInterval=Config().getInt("spark.poll.interval")
   val ssc = new StreamingContext(spark.sparkContext, Seconds(pollInterval))
 
@@ -44,8 +47,16 @@ object Main extends App {
     .map("<data>"+_)
     .flatMap(parseXML(_))
 
-
   data.print()
+
+  data.foreachRDD(rdd => {
+    print("######foreachRDD")
+    ds_vis = ds_vis union rdd.toDS()
+    val byBucket = Window.partitionBy(col("city")).orderBy(col("measured_at_ts") desc_nulls_last)
+    ds_vis.show()
+    ds_vis = ds_vis.withColumn("row_number",row_number over byBucket).filter("row_number == 1").drop("row_number").as[Measurement]
+    ds_vis.cache().show()
+  })
 
   ssc.start()
   ssc.awaitTermination()
