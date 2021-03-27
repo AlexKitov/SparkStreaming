@@ -1,7 +1,7 @@
 package org.company.temperature
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
@@ -23,8 +23,11 @@ object Main extends App {
     .appName(Config().getString("spark.app.name"))
     .getOrCreate()
 
+  import spark.implicits._
+
   spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
+  val ds_vis: Dataset[Measurement] = spark.createDataset(Seq.empty[Measurement])
   val pollInterval=Config().getInt("spark.poll.interval")
   val ssc = new StreamingContext(spark.sparkContext, Seconds(pollInterval))
 
@@ -40,6 +43,7 @@ object Main extends App {
     .filter(_.nonEmpty)
     .map("<data>"+_)
     .flatMap(parseXML(_))
+
 
   data.print()
 
