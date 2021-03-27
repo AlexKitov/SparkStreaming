@@ -1,22 +1,23 @@
 package org.company.temperature
 
-import com.typesafe.config.ConfigFactory
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 
 object Main extends App {
+  println( "Hello World!" )
   val conf = Config()
   println(conf.isResolved)
-  val dataPathString = conf.getConfig("hdfs").getConfig("path").getString("dataPath")
+  val dataPathString = conf.getString("hdfs.path.dataPath")
+
   println(dataPathString)
 //  val pathString="file:///home/alkit/code_excercise/Troels/SparkStreaming/src/main/resources/test"
 //  val path = new org.apache.hadoop.fs.Path(pathString)
 
 
-  println( "Hello World!" )
-  println(Config().getString("env"))
+
 
   val spark:SparkSession = SparkSession
     .builder
@@ -32,15 +33,14 @@ object Main extends App {
 //  val lines = ssc.socketStream("localhost", 9999) # producer @nc -lk 9999
   val lines = ssc.textFileStream(dataPathString.toString)
 
-
   val skipPattern = Config().getString("xml.skip.pattern")
-  val xmlOpenTag = Config().getString("xml.root.open.tag")
-  val xmlCloseTag = Config().getString("xml.root.close.tag")
 
-  val data: DStream[Measurement] = lines
+  val data = lines
     .filter(line=> !line.startsWith(skipPattern))
     .reduce(_ + " " + _)
-    .map(xmlOpenTag + _ + xmlCloseTag)
+    .flatMap(_.split("<data>").toList)
+    .filter(_.nonEmpty)
+    .map("<data>"+_)
     .map(parseXML(_, spark))
     .flatMap(identity)
 
