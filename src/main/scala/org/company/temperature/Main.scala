@@ -6,8 +6,11 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 import org.apache.spark.sql.functions._
 
+import DataModels._
 
 object Main extends App {
+  type LocationMeasurement = MeasurementWithCountry
+
   println( "Hello World!" )
 
   val conf = Config()
@@ -29,7 +32,7 @@ object Main extends App {
   spark.sparkContext.setLogLevel("ERROR")
   spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
-  var ds_vis: Dataset[Measurement] = spark.createDataset(Seq.empty[Measurement])
+  var ds_vis: Dataset[LocationMeasurement] = spark.createDataset(Seq.empty[LocationMeasurement])
 
   val pollInterval=Config().getInt("spark.poll.interval")
   val ssc = new StreamingContext(spark.sparkContext, Seconds(pollInterval))
@@ -44,6 +47,7 @@ object Main extends App {
     .filter(_.nonEmpty)
     .map("<data>"+_)
     .flatMap(parseXML(_))
+    .map(MeasurementWithCountry(_))
 
   data.print()
 
@@ -56,7 +60,7 @@ object Main extends App {
                 .withColumn("row_number",row_number over windowSpec)
                 .filter("row_number == 1")
                 .drop("row_number")
-                .as[Measurement]
+                .as[LocationMeasurement]
 
     ds_vis.cache().show()
   })

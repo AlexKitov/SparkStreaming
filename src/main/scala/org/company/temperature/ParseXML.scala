@@ -11,6 +11,8 @@ import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 import java.io.BufferedOutputStream
 import scala.util.{Failure, Success, Try}
 
+import DataModels._
+
 object ParseXML {
   private val xmlStrExample =
     """<data>
