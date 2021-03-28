@@ -1,9 +1,7 @@
 package org.company.temperature
 
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{Dataset, SparkSession}
-import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 import org.apache.spark.sql.functions._
@@ -11,14 +9,15 @@ import org.apache.spark.sql.functions._
 
 object Main extends App {
   println( "Hello World!" )
+
   val conf = Config()
   println(conf.isResolved)
+
   val dataPathString = conf.getString("hdfs.path.dataPath")
-
   println(dataPathString)
-//  val pathString="file:///home/alkit/code_excercise/Troels/SparkStreaming/src/main/resources/test"
-//  val path = new org.apache.hadoop.fs.Path(pathString)
 
+  val skipPattern = Config().getString("xml.skip.pattern")
+  println(skipPattern)
 
   implicit val spark:SparkSession = SparkSession
     .builder
@@ -27,17 +26,16 @@ object Main extends App {
     .getOrCreate()
 
   import spark.implicits._
-
+  spark.sparkContext.setLogLevel("ERROR")
   spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
   var ds_vis: Dataset[Measurement] = spark.createDataset(Seq.empty[Measurement])
+
   val pollInterval=Config().getInt("spark.poll.interval")
   val ssc = new StreamingContext(spark.sparkContext, Seconds(pollInterval))
 
 //  val lines = ssc.socketStream("localhost", 9999) # producer @nc -lk 9999
-  val lines = ssc.textFileStream(dataPathString.toString)
-
-  val skipPattern = Config().getString("xml.skip.pattern")
+  val lines = ssc.textFileStream(dataPathString)
 
   val data = lines
     .filter(line=> !line.startsWith(skipPattern))
@@ -50,53 +48,21 @@ object Main extends App {
   data.print()
 
   data.foreachRDD(rdd => {
-    print("######foreachRDD")
-    ds_vis = ds_vis union rdd.toDS()
-    val byBucket = Window.partitionBy(col("city")).orderBy(col("measured_at_ts") desc_nulls_last)
-    ds_vis.show()
-    ds_vis = ds_vis.withColumn("row_number",row_number over byBucket).filter("row_number == 1").drop("row_number").as[Measurement]
+    val windowSpec = Window
+                      .partitionBy(col("city"))
+                      .orderBy(col("measured_at_ts") desc_nulls_last)
+
+    ds_vis = (ds_vis union rdd.toDS())
+                .withColumn("row_number",row_number over windowSpec)
+                .filter("row_number == 1")
+                .drop("row_number")
+                .as[Measurement]
+
     ds_vis.cache().show()
   })
 
   ssc.start()
   ssc.awaitTermination()
-
-  println("Another solution below")
-
-//  line.foreachRDD {
-//    RDD =>
-//      val spark: SparkSession = SparkSession.builder.master("local[3]").appName("SparkByExamples").getOrCreate()
-//      spark.sparkContext.setLogLevel("ERROR")
-//      import spark.implicits._
-//  }
-
-//val spark:SparkSession = SparkSession.builder.master("local[3]").appName("SparkByExamples").getOrCreate()
-  //  spark.sparkContext.setLogLevel("ERROR")
-//  import spark.implicits._
-//  spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
-
-//  val schema = StructType(List(StructField("line", StringType, true)))
-
-
-
-//  val consumer = spark.readStream
-//    .option("maxFilesPerTrigger", 1)
-//    .textFile(path.toString)
-//    .agg(collect_list("value"))
-//
-//  val producer = consumer.writeStream
-//    .format("console")
-//    .option("truncate", value = false)
-//    .option("numRows", 1000)
-//    .outputMode(Complete) // <-- update output mode
-//
-//
-////  val producer = consumer.writeStream.format("console").option("truncate", value = false).option("numRows", 1000).outputMode(Complete) // <-- update output mode
-//
-//
-//  producer.start.awaitTermination()
-
-
 
   println( "TERMINATE!" )
 }
