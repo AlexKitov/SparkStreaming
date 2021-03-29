@@ -33,7 +33,7 @@ object ParseXML {
   }
 
   def newDateFileNameString(): String = {
-    val dtf: DateTimeFormatter = DateTimeFormat.forPattern("yyyyMMddHHmmss_SSS");
+    val dtf: DateTimeFormatter = DateTimeFormat.forPattern(AppConfig.fileNameDateFormat);
     new DateTime().toString(dtf)
   }
 

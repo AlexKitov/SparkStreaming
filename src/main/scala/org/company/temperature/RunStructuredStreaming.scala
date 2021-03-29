@@ -1,9 +1,9 @@
 package org.company.temperature
 
-import org.apache.spark.sql.{Dataset, SaveMode, SparkSession}
 import org.company.temperature.ParseXML.parseXML
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.OutputMode.{Append, Complete, Update}
+import org.apache.spark.sql.streaming.Trigger
 import org.company.temperature.DataModels.MeasurementWithCountry
 import org.company.temperature.UDFs._
 import org.company.temperature.AppSparkConf.spark
@@ -23,40 +23,41 @@ object RunStructuredStreaming extends App {
   val processor = consumer
     .filter(line=> !line.startsWith(AppConfig.skipPattern))
     .withColumn("timestamp", current_timestamp)
-    .withWatermark("timestamp", "1 minutes")
+    .withWatermark("timestamp", "5 seconds")
     .groupBy("timestamp")
     .agg(collect_list("value").as("lst"))
     .withColumn("lst_element", mkString2UDF(col("lst")))
     .select(col("timestamp"), explode(col("lst_element")).as("element"))
     .select("element")
-    .flatMap(r =>  parseXML(r.getString(0)))
+    .flatMap(r => parseXML(r.getString(0)))
     .map(MeasurementWithCountry(_))
-    .cache
 
+//  val windowSpec = Window
+//    .partitionBy(col("city"))
+//    .orderBy(col("measured_at_ts") desc_nulls_last)
+//  val dashboardProcessor = processor
+//    .withColumn("row_number", row_number over windowSpec)
+//    .filter("row_number == 1")
+//    .drop("row_number")
+//    .as[MeasurementWithTimestamp]
+  val producerParquet = processor
+    .writeStream
+    .format("parquet")
+    .trigger(Trigger.ProcessingTime("10 seconds"))
+    .option("path", AppConfig.temperaturePath)
+    .option("checkpointLocation", AppConfig.checkpointLocation)
+    .outputMode(Append)
 
-  processor.show
-  processor
-    .write
-    .mode(SaveMode.Append)
-    .parquet(AppConfig.temperaturePath)
-
-  //    val windowSpec = Window
-  //    .partitionBy(col("city"))
-  //    .orderBy(col("measured_at_ts") desc_nulls_last)
-//    val df = consumer
-//      .withColumn("row_number", row_number over windowSpec)
-//      .filter("row_number == 1")
-//      .drop("row_number")
-//      .as[MeasurementWithTimestamp]
-
-
-  val producer = processor.writeStream
+  val producerConsole = processor.writeStream
     .format("console")
     .option("truncate", value = false)
     .option("numRows", 20)
-    .outputMode(Complete)   // <-- update output mode
+    .trigger(Trigger.ProcessingTime("10 seconds"))
+    .outputMode(Append)   // <-- update output mode
 
-  producer.start.awaitTermination()
+  producerConsole.start.awaitTermination
+//  producerParquet.start.awaitTermination
+
 
   println( "TERMINATE!" )
 }
