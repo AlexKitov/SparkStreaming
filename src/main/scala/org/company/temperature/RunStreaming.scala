@@ -5,40 +5,19 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 import DataModels._
 import org.apache.spark.streaming.dstream.DStream
-import org.company.temperature.CheckWarehouse.appConf
+import org.company.temperature.AppSparkConf.spark
 
-
-object Streaming extends App {
-
-  val appConf = Config()
-  println(appConf.isResolved)
-
-  val dataPathString = appConf.getString("hdfs.path.dataPath")
-  println(dataPathString)
-  val temperaturePath = appConf.getString("hdfs.path.temperaturePath")
-  println(temperaturePath)
-
-  val skipPattern = appConf.getString("xml.skip.pattern")
-  println(skipPattern)
-
-  implicit val spark:SparkSession = SparkSession
-    .builder
-    .master(appConf.getString("spark.master"))
-    .appName(appConf.getString("spark.app.name"))
-    .getOrCreate()
+object RunStreaming extends App {
 
   import spark.implicits._
-  spark.sparkContext.setLogLevel("ERROR")
-  spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
-  val pollInterval=appConf.getInt("spark.poll.interval")
-  val ssc = new StreamingContext(spark.sparkContext, Seconds(pollInterval))
+  val ssc = new StreamingContext(spark.sparkContext, Seconds(AppConfig.pollingInterval))
 
 //  val lines = ssc.socketStream("localhost", 9999) # producer @nc -lk 9999
-  val lines: DStream[String] = ssc.textFileStream(dataPathString)
+  val consumer: DStream[String] = ssc.textFileStream(AppConfig.dataPathString)
 
-  val data = lines
-    .filter(line => !line.startsWith(skipPattern))
+  val processor = consumer
+    .filter(line => !line.startsWith(AppConfig.skipPattern))
     .reduce(_ + " " + _)
     .flatMap(_.split("<data>").toList)
     .filter(_.nonEmpty)
@@ -47,22 +26,22 @@ object Streaming extends App {
     .map(MeasurementWithCountry(_))
     .cache
 
-  data.print()
+  processor.print()
 
-  data.foreachRDD(rdd => {
+  processor.foreachRDD(rdd => {
     if (!rdd.isEmpty()) {
-      println("##foreachRDD")
-      val storage = rdd.toDS().cache
-      storage.show
-      storage
+      val producer = rdd.toDS().cache
+      producer.show
+      producer
         .write
         .mode(SaveMode.Append)
-        .parquet(temperaturePath)
+        .parquet(AppConfig.temperaturePath)
+
 
 //      TODO Fix when bug is fixed or try with mapWithState
 //      https://issues.apache.org/jira/browse/SPARK-16087
 //      val ds_vis: Dataset[LocationMeasurement] = spark.read
-//        .parquet("hdfs://localhost:9000/warehouse/dashboard/dash.parquet")
+//        .parquet(appConf.dashboardPath)
 //        .as[LocationMeasurement]
 //        .cache
 //
@@ -80,7 +59,7 @@ object Streaming extends App {
 //      dashDS
 //        .write
 //        .mode(SaveMode.Append)
-//        .parquet("hdfs://localhost:9000/warehouse/dashboard.parquet")
+//        .parquet(appConf.dashboardPath)
     }
   })
 
