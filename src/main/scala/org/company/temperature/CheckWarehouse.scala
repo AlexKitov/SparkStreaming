@@ -1,24 +1,17 @@
 package org.company.temperature
 
 import org.apache.spark.sql.{SaveMode, SparkSession}
-import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.DataModels._
-import org.company.temperature.ParseXML.parseXML
 
 
 object CheckWarehouse extends App {
 
-  val appConf = Config()
-  println(appConf.isResolved)
-
-  val temperaturePath = appConf.getString("hdfs.path.temperaturePath")
-  println(temperaturePath)
+  val appConf = Config
 
   val spark:SparkSession = SparkSession
     .builder
-    .master(appConf.getString("spark.master"))
-    .appName(appConf.getString("spark.app.name"))
+    .master(appConf.master)
+    .appName(appConf.appName)
     .getOrCreate()
 
   import spark.implicits._
@@ -28,7 +21,7 @@ object CheckWarehouse extends App {
 
 
   val storage = spark.read
-    .parquet(temperaturePath)
+    .parquet(appConf.temperaturePath)
     .as[LocationMeasurement]
     .cache()
 

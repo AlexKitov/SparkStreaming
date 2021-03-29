@@ -1,7 +1,6 @@
 package org.company.temperature
 
 import org.apache.spark.sql.{Dataset, SaveMode, SparkSession}
-import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.OutputMode.{Append, Complete, Update}
@@ -10,43 +9,26 @@ import org.company.temperature.UDFs._
 
 object StructuredStreaming extends App {
 
-  val appConfig = Config()
-  println(appConfig.isResolved)
-
-  val dataPathString = appConfig.getString("hdfs.path.dataPath")
-  println(dataPathString)
-
-  val temperaturePath = appConfig.getString("hdfs.path.temperaturePath")
-  println(temperaturePath)
-
-  val dashboardPath = appConfig.getString("hdfs.path.dashboardPath")
-  println(dashboardPath)
+  val appConfig = Config
 
   implicit val spark:SparkSession = SparkSession
     .builder
-    .master(appConfig.getString("spark.master"))
-    .appName(appConfig.getString("spark.app.name"))
+    .master(appConfig.master)
+    .appName(appConfig.appName)
     .getOrCreate()
 
   import spark.implicits._
 
-  spark.sparkContext.setLogLevel("ERROR")
+  spark.sparkContext.setLogLevel(appConfig.logLevel)
 
   spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
-  val pollInterval=Config().getInt("spark.poll.interval")
-  val ssc = new StreamingContext(spark.sparkContext, Seconds(pollInterval))
-
-//  val lines = ssc.socketStream("localhost", 9999) # producer @nc -lk 9999
-  val lines = ssc.textFileStream(dataPathString.toString)
-
-  val skipPattern = Config().getString("xml.skip.pattern")
-
-
   val consumer = spark.readStream
     .option("maxFilesPerTrigger", 2)
-    .textFile(dataPathString)
-    .filter(line=> !line.startsWith(skipPattern))
+    .textFile(appConfig.dataPathString)
+
+  val processor = consumer
+    .filter(line=> !line.startsWith(appConfig.skipPattern))
     .withColumn("timestamp", current_timestamp)
     .withWatermark("timestamp", "1 minutes")
     .groupBy("timestamp")
@@ -59,11 +41,11 @@ object StructuredStreaming extends App {
     .cache
 
 
-  consumer.show
-  consumer
+  processor.show
+  processor
     .write
     .mode(SaveMode.Append)
-    .parquet(temperaturePath)
+    .parquet(appConfig.temperaturePath)
 
   //    val windowSpec = Window
   //    .partitionBy(col("city"))
@@ -75,10 +57,10 @@ object StructuredStreaming extends App {
 //      .as[MeasurementWithTimestamp]
 
 
-  val producer = consumer.writeStream
+  val producer = processor.writeStream
     .format("console")
     .option("truncate", value = false)
-    .option("numRows", 10)
+    .option("numRows", 20)
     .outputMode(Complete)   // <-- update output mode
 
   producer.start.awaitTermination()

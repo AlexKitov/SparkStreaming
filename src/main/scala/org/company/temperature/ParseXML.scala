@@ -4,8 +4,6 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 
-import org.company.temperature.Streaming.appConf
-
 import java.sql.Timestamp
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
@@ -16,6 +14,7 @@ import scala.util.{Failure, Success, Try}
 import DataModels._
 
 object ParseXML {
+  private val appConf = Config
   private val xmlStrExample =
     """<data>
       |    <city>London</city>
@@ -27,11 +26,8 @@ object ParseXML {
       |</data>""".stripMargin
 
 
-  val xmlDateFormat = appConf.getString("xml.in.date.format")
-  val failedPath = appConf.getString("hdfs.path.failPath")
-
   def strToDate(dateTime: String): Timestamp = {
-    val dtf: DateTimeFormatter = DateTimeFormat.forPattern(xmlDateFormat);
+    val dtf: DateTimeFormatter = DateTimeFormat.forPattern(appConf.xmlDateFormat);
     val jodatime: DateTime = dtf.parseDateTime(dateTime);
     new Timestamp(jodatime.getMillis)
   }
@@ -80,7 +76,7 @@ object ParseXML {
     val fsConf: Configuration = new Configuration(ss.sparkContext.hadoopConfiguration)
     fsConf.setInt("dfs.blocksize", 16 * 1024 * 1024) // 16MB HDFS Block Size
 
-    val path = new Path(s"${failedPath}/${newDateFileNameString()}.txt")
+    val path = new Path(s"${appConf.failedPath}/${newDateFileNameString()}.txt")
     val fs = path.getFileSystem(fsConf)
     if (fs.exists(path))
       fs.delete(path, true)
