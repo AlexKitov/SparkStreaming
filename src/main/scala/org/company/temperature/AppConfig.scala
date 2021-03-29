@@ -1,7 +1,6 @@
 package org.company.temperature
 
 import com.typesafe.config._
-import org.company.temperature.RunCheckWarehouse.Config
 
 object AppConfig {
   val scalaEnv = System.getenv("SCALA_ENV")
