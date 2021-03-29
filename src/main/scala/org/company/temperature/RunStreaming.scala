@@ -7,7 +7,7 @@ import DataModels._
 import org.apache.spark.streaming.dstream.DStream
 
 
-object Streaming extends App {
+object RunStreaming extends App {
 
   val appConf = Config
 

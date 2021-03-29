@@ -7,7 +7,7 @@ import org.apache.spark.sql.streaming.OutputMode.{Append, Complete, Update}
 import org.company.temperature.DataModels.MeasurementWithCountry
 import org.company.temperature.UDFs._
 
-object StructuredStreaming extends App {
+object RunStructuredStreaming extends App {
 
   val appConfig = Config
 

@@ -4,7 +4,7 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 import org.company.temperature.DataModels._
 
 
-object CheckWarehouse extends App {
+object RunCheckWarehouse extends App {
 
   val appConf = Config
 
