@@ -5,29 +5,19 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 import DataModels._
 import org.apache.spark.streaming.dstream.DStream
-
+import org.company.temperature.AppSparkConf.spark
 
 object RunStreaming extends App {
 
-  val appConf = Config
-
-  implicit val spark:SparkSession = SparkSession
-    .builder
-    .master(appConf.master)
-    .appName(appConf.appName)
-    .getOrCreate()
-
   import spark.implicits._
-  spark.sparkContext.setLogLevel(appConf.logLevel)
-  spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
-  val ssc = new StreamingContext(spark.sparkContext, Seconds(appConf.pollingInterval))
+  val ssc = new StreamingContext(spark.sparkContext, Seconds(AppConfig.pollingInterval))
 
 //  val lines = ssc.socketStream("localhost", 9999) # producer @nc -lk 9999
-  val consumer: DStream[String] = ssc.textFileStream(appConf.dataPathString)
+  val consumer: DStream[String] = ssc.textFileStream(AppConfig.dataPathString)
 
   val processor = consumer
-    .filter(line => !line.startsWith(appConf.skipPattern))
+    .filter(line => !line.startsWith(AppConfig.skipPattern))
     .reduce(_ + " " + _)
     .flatMap(_.split("<data>").toList)
     .filter(_.nonEmpty)
@@ -45,7 +35,7 @@ object RunStreaming extends App {
       producer
         .write
         .mode(SaveMode.Append)
-        .parquet(appConf.temperaturePath)
+        .parquet(AppConfig.temperaturePath)
 
 
 //      TODO Fix when bug is fixed or try with mapWithState

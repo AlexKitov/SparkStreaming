@@ -1,9 +1,9 @@
 package org.company.temperature
 
 import com.typesafe.config._
-import org.company.temperature.RunCheckWarehouse.appConf
+import org.company.temperature.RunCheckWarehouse.Config
 
-object Config {
+object AppConfig {
   val scalaEnv = System.getenv("SCALA_ENV")
 
   val appEnv = if (scalaEnv == null) "dev"

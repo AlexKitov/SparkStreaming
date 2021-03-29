@@ -6,29 +6,22 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.OutputMode.{Append, Complete, Update}
 import org.company.temperature.DataModels.MeasurementWithCountry
 import org.company.temperature.UDFs._
+import org.company.temperature.AppSparkConf.spark
 
 object RunStructuredStreaming extends App {
 
-  val appConfig = Config
-
-  implicit val spark:SparkSession = SparkSession
-    .builder
-    .master(appConfig.master)
-    .appName(appConfig.appName)
-    .getOrCreate()
-
   import spark.implicits._
 
-  spark.sparkContext.setLogLevel(appConfig.logLevel)
+  spark.sparkContext.setLogLevel(AppConfig.logLevel)
 
   spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
   val consumer = spark.readStream
     .option("maxFilesPerTrigger", 2)
-    .textFile(appConfig.dataPathString)
+    .textFile(AppConfig.dataPathString)
 
   val processor = consumer
-    .filter(line=> !line.startsWith(appConfig.skipPattern))
+    .filter(line=> !line.startsWith(AppConfig.skipPattern))
     .withColumn("timestamp", current_timestamp)
     .withWatermark("timestamp", "1 minutes")
     .groupBy("timestamp")
@@ -45,7 +38,7 @@ object RunStructuredStreaming extends App {
   processor
     .write
     .mode(SaveMode.Append)
-    .parquet(appConfig.temperaturePath)
+    .parquet(AppConfig.temperaturePath)
 
   //    val windowSpec = Window
   //    .partitionBy(col("city"))
