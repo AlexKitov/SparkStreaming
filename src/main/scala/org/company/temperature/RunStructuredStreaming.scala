@@ -18,7 +18,7 @@ object RunStructuredStreaming extends App {
 
   val consumer = spark.readStream
     .option("maxFilesPerTrigger", 2)
-    .textFile(AppConfig.dataPathString)
+    .textFile(AppConfig.dataStream1)
 
   val processor = consumer
     .filter(line=> !line.startsWith(AppConfig.skipPattern))

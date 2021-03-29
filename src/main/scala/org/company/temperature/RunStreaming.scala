@@ -1,6 +1,6 @@
 package org.company.temperature
 
-import org.apache.spark.sql.{SaveMode, SparkSession}
+import org.apache.spark.sql.SaveMode
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 import DataModels._
@@ -14,7 +14,9 @@ object RunStreaming extends App {
   val ssc = new StreamingContext(spark.sparkContext, Seconds(AppConfig.pollingInterval))
 
 //  val lines = ssc.socketStream("localhost", 9999) # producer @nc -lk 9999
-  val consumer: DStream[String] = ssc.textFileStream(AppConfig.dataPathString)
+  val streamSources = List(AppConfig.dataStream1, AppConfig.dataStream2, AppConfig.dataStream3)
+
+  val consumer = streamSources.map(ssc.textFileStream).reduce(_ union _)
 
   val processor = consumer
     .filter(line => !line.startsWith(AppConfig.skipPattern))
