@@ -58,5 +58,6 @@ object RunStructuredStreaming extends App {
   producerConsole.start.awaitTermination
 //  producerParquet.start.awaitTermination
 
+
   println( "TERMINATE!" )
 }

@@ -11,6 +11,7 @@ object AppSparkConf {
     .getOrCreate()
 
   spark.sparkContext.setLogLevel(AppConfig.logLevel)
+
   spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
 }
