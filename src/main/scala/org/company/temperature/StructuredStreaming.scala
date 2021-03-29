@@ -1,20 +1,26 @@
 package org.company.temperature
 
-
-import org.apache.spark.sql.{ Dataset, SparkSession}
+import org.apache.spark.sql.{Dataset, SaveMode, SparkSession}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.OutputMode.{Append, Complete, Update}
-
+import org.company.temperature.DataModels.MeasurementWithCountry
+import org.company.temperature.UDFs._
 
 object StructuredStreaming extends App {
 
   val appConfig = Config()
   println(appConfig.isResolved)
-  val dataPathString = appConfig.getString("hdfs.path.dataPath")
 
+  val dataPathString = appConfig.getString("hdfs.path.dataPath")
   println(dataPathString)
+
+  val temperaturePath = appConfig.getString("hdfs.path.temperaturePath")
+  println(temperaturePath)
+
+  val dashboardPath = appConfig.getString("hdfs.path.dashboardPath")
+  println(dashboardPath)
 
   implicit val spark:SparkSession = SparkSession
     .builder
@@ -28,7 +34,6 @@ object StructuredStreaming extends App {
 
   spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
-  var ds_vis: Dataset[Measurement] = spark.createDataset(Seq.empty[Measurement])
   val pollInterval=Config().getInt("spark.poll.interval")
   val ssc = new StreamingContext(spark.sparkContext, Seconds(pollInterval))
 
@@ -37,15 +42,6 @@ object StructuredStreaming extends App {
 
   val skipPattern = Config().getString("xml.skip.pattern")
 
-  def mkString2(xml:Seq[String]): Seq[String] = {
-      xml
-        .mkString(" ")
-        .split("<data>")
-        .filter(_.nonEmpty)
-        .map("<data>"+_)
-  }
-
-  val mkString2UDF=udf(mkString2 _)
 
   val consumer = spark.readStream
     .option("maxFilesPerTrigger", 2)
@@ -59,9 +55,17 @@ object StructuredStreaming extends App {
     .select(col("timestamp"), explode(col("lst_element")).as("element"))
     .select("element")
     .flatMap(r =>  parseXML(r.getString(0)))
-    .persist()
+    .map(MeasurementWithCountry(_))
+    .cache
 
-//    val windowSpec = Window
+
+  consumer.show
+  consumer
+    .write
+    .mode(SaveMode.Append)
+    .parquet(temperaturePath)
+
+  //    val windowSpec = Window
   //    .partitionBy(col("city"))
   //    .orderBy(col("measured_at_ts") desc_nulls_last)
 //    val df = consumer
