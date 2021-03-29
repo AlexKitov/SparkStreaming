@@ -31,6 +31,7 @@ object RunStructuredStreaming extends App {
     .select("element")
     .flatMap(r => parseXML(r.getString(0)))
     .map(MeasurementWithCountry(_))
+    .map(Utils.fillMissingTemperatures)
 
 //  val windowSpec = Window
 //    .partitionBy(col("city"))
