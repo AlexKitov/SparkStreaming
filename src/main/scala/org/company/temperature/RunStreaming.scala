@@ -24,6 +24,8 @@ object RunStreaming extends App {
     .map("<data>"+_)
     .flatMap(parseXML(_))
     .map(MeasurementWithCountry(_))
+    .map(Utils.fillMissingTemperatures)
+    .map(CityTemperature(_))
     .cache
 
   processor.print()

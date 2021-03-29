@@ -4,7 +4,7 @@ import org.company.temperature.ParseXML.parseXML
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.OutputMode.{Append, Complete, Update}
 import org.apache.spark.sql.streaming.Trigger
-import org.company.temperature.DataModels.MeasurementWithCountry
+import org.company.temperature.DataModels.{CityTemperature, MeasurementWithCountry}
 import org.company.temperature.UDFs._
 import org.company.temperature.AppSparkConf.spark
 
@@ -31,6 +31,8 @@ object RunStructuredStreaming extends App {
     .select("element")
     .flatMap(r => parseXML(r.getString(0)))
     .map(MeasurementWithCountry(_))
+    .map(Utils.fillMissingTemperatures)
+    .map(CityTemperature(_))
 
 //  val windowSpec = Window
 //    .partitionBy(col("city"))
