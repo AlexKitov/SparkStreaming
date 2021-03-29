@@ -43,4 +43,7 @@ object AppConfig {
 
   val xmlDateFormat = configProvider.getString("xml.in.date.format")
   println(xmlDateFormat)
+
+  val fileNameDateFormat = configProvider.getString("hdfs.path.fileNameDateFormat")
+  println(fileNameDateFormat)
 }
