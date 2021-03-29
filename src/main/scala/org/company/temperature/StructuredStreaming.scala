@@ -1,30 +1,25 @@
 package org.company.temperature
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.{Column, DataFrame, DataFrameWriter, Dataset, Encoders, Row, SparkSession}
-import org.apache.spark.streaming.dstream.DStream
+
+import org.apache.spark.sql.{ Dataset, SparkSession}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.ParseXML.parseXML
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.OutputMode.{Append, Complete, Update}
 
 
-object Main extends App {
-  println( "Hello World!" )
-  val conf = Config()
-  println(conf.isResolved)
-  val dataPathString = conf.getString("hdfs.path.dataPath")
+object StructuredStreaming extends App {
+
+  val appConfig = Config()
+  println(appConfig.isResolved)
+  val dataPathString = appConfig.getString("hdfs.path.dataPath")
 
   println(dataPathString)
-//  val pathString="file:///home/alkit/code_excercise/Troels/SparkStreaming/src/main/resources/test"
-//  val path = new org.apache.hadoop.fs.Path(pathString)
-
 
   implicit val spark:SparkSession = SparkSession
     .builder
-    .master(Config().getString("spark.master"))
-    .appName(Config().getString("spark.app.name"))
+    .master(appConfig.getString("spark.master"))
+    .appName(appConfig.getString("spark.app.name"))
     .getOrCreate()
 
   import spark.implicits._
@@ -41,31 +36,6 @@ object Main extends App {
   val lines = ssc.textFileStream(dataPathString.toString)
 
   val skipPattern = Config().getString("xml.skip.pattern")
-
-//  val data = lines
-//    .filter(line=> !line.startsWith(skipPattern))
-//    .reduce(_ + " " + _)
-//    .flatMap(_.split("<data>").toList)
-//    .filter(_.nonEmpty)
-//    .map("<data>"+_)
-//    .flatMap(parseXML(_))
-//
-//  data.print()
-
-//  data.foreachRDD(rdd => {
-//    val windowSpec = Window.partitionBy(col("city")).orderBy(col("measured_at_ts") desc_nulls_last)
-//    ds_vis = (ds_vis union rdd.toDS())
-//              .withColumn("row_number",row_number over windowSpec)
-//              .filter("row_number == 1")
-//              .drop("row_number")
-//              .as[Measurement]
-//    ds_vis.cache().show()
-//  })
-
-//  ssc.start()
-//  ssc.awaitTermination()
-
-  println("Another solution below")
 
   def mkString2(xml:Seq[String]): Seq[String] = {
       xml
@@ -91,7 +61,9 @@ object Main extends App {
     .flatMap(r =>  parseXML(r.getString(0)))
     .persist()
 
-//    val windowSpec = Window.partitionBy(col("city")).orderBy(col("measured_at_ts") desc_nulls_last)
+//    val windowSpec = Window
+  //    .partitionBy(col("city"))
+  //    .orderBy(col("measured_at_ts") desc_nulls_last)
 //    val df = consumer
 //      .withColumn("row_number", row_number over windowSpec)
 //      .filter("row_number == 1")

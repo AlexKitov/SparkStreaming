@@ -3,7 +3,7 @@ package org.company.temperature
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
-import org.company.temperature.Main.conf
+import org.company.temperature.StructuredStreaming.appConfig
 import java.sql.Timestamp
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
@@ -24,8 +24,8 @@ object ParseXML {
 
 
 
-  val xmlDateFormat = conf.getString("xml.in.date.format")
-  val failedPath = conf.getString("hdfs.path.failPath")
+  val xmlDateFormat = appConfig.getString("xml.in.date.format")
+  val failedPath = appConfig.getString("hdfs.path.failPath")
 
   def strToDate(dateTime: String): Timestamp = {
     val dtf: DateTimeFormatter = DateTimeFormat.forPattern(xmlDateFormat);
