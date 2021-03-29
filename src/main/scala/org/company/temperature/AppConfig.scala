@@ -50,4 +50,6 @@ object AppConfig {
   val checkpointLocation = configProvider.getString("hdfs.path.checkpointLocation")
   println(checkpointLocation)
 
+  val outDateFormat = configProvider.getString("out.date.format")
+  println(outDateFormat)
 }

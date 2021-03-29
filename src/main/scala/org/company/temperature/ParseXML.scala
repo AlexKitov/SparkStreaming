@@ -26,7 +26,8 @@ object ParseXML {
       |</data>""".stripMargin
 
 
-  def strToDate(dateTime: String): Timestamp = {
+
+  def strToTimestamp(dateTime: String): Timestamp = {
     val dtf: DateTimeFormatter = DateTimeFormat.forPattern(AppConfig.xmlDateFormat);
     val jodatime: DateTime = dtf.parseDateTime(dateTime);
     new Timestamp(jodatime.getMillis)
@@ -54,7 +55,7 @@ object ParseXML {
       val node = scala.xml.XML.loadString(xmlStr)
       val city = (node \\ "city").head.text
       val tempAndUnit = (node \\ "temperature")
-      val measured_at_ts = strToDate((node \\ "measured_at_ts").head.text)
+      val measured_at_ts = strToTimestamp((node \\ "measured_at_ts").head.text)
 
       val tempMap: Map[String, Option[Double]] = (tempAndUnit \\ "value")
         .map(
