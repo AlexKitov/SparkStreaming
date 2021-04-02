@@ -59,6 +59,7 @@ object AppConfig {
   val outDateFormat = configProvider.getString("out.date.format")
   println(outDateFormat)
 
-  val expireAfterMillis = configProvider.getLong("out.expireAfterMillis ")
+  val expireAfterMillis = configProvider.getLong("out.expireAfterMillis")
   println(expireAfterMillis)
+
 }

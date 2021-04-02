@@ -15,6 +15,7 @@ object RunStreaming extends App {
   ssc.checkpoint(AppConfig.checkpointLocation)
 
 //  val lines = ssc.socketStream("localhost", 9999) # producer @nc -lk 9999
+  //TODO handle xml._COPYING_ case
   val streamSources = List(AppConfig.dataStream1, AppConfig.dataStream2, AppConfig.dataStream3)
 
   val consumer = streamSources.map(ssc.textFileStream).reduce(_ union _)
