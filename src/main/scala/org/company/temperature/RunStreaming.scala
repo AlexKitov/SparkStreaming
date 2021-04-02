@@ -12,6 +12,7 @@ object RunStreaming extends App {
   import spark.implicits._
 
   val ssc = new StreamingContext(spark.sparkContext, Seconds(AppConfig.pollingInterval))
+  ssc.checkpoint(AppConfig.checkpointLocation)
 
 //  val lines = ssc.socketStream("localhost", 9999) # producer @nc -lk 9999
   val consumer: DStream[String] = ssc.textFileStream(AppConfig.dataPathString)
@@ -28,42 +29,21 @@ object RunStreaming extends App {
     .map(CityTemperature(_))
     .cache
 
-  processor.print()
-
   processor.foreachRDD(rdd => {
     if (!rdd.isEmpty()) {
+      println("#### NEW DATA")
       val producer = rdd.toDS().cache
       producer.show
       producer
         .write
         .mode(SaveMode.Append)
         .parquet(AppConfig.temperaturePath)
-
-
-//      TODO Fix when bug is fixed or try with mapWithState
-//      https://issues.apache.org/jira/browse/SPARK-16087
-//      val ds_vis: Dataset[LocationMeasurement] = spark.read
-//        .parquet(appConf.dashboardPath)
-//        .as[LocationMeasurement]
-//        .cache
-//
-//      val windowSpec = Window
-//        .partitionBy(col("city"))
-//        .orderBy(col("measured_at_ts") desc_nulls_last)
-//
-//      val dashDS = (ds_vis.rdd union rdd).toDS()
-//        .withColumn("row_number", row_number over windowSpec)
-//        .filter("row_number == 1")
-//        .drop("row_number")
-//        .as[LocationMeasurement]
-//        .cache
-//
-//      dashDS
-//        .write
-//        .mode(SaveMode.Append)
-//        .parquet(appConf.dashboardPath)
+    } else {
+      println("#### NO NEW DATA")
     }
   })
+
+  LatestMeasurementStream(processor)
 
   ssc.start()
   ssc.awaitTermination()
