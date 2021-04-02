@@ -38,6 +38,9 @@ object AppConfig {
   val dataStream3 = configProvider.getString("hdfs.path.dataStream3")
   println(dataStream3)
 
+  val populationStream = configProvider.getString("hdfs.path.populationStream")
+  println(populationStream)
+
   val failedPath = configProvider.getString("hdfs.path.failPath")
   println(failedPath)
 
