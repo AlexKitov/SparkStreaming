@@ -10,7 +10,7 @@ import org.company.temperature.DataModels.{CityTemperature, MeasurementWithCount
 import org.company.temperature.ParseXML.parseXML
 import org.company.temperature.UDFs._
 
-object RunPopulationStream extends App {
+object RunPopulationStructuredStream extends App {
 
   import spark.implicits._
 
@@ -36,14 +36,6 @@ object RunPopulationStream extends App {
 
   val processor = consumer
 
-//  val windowSpec = Window
-//    .partitionBy(col("city"))
-//    .orderBy(col("measured_at_ts") desc_nulls_last)
-//  val dashboardProcessor = processor
-//    .withColumn("row_number", row_number over windowSpec)
-//    .filter("row_number == 1")
-//    .drop("row_number")
-//    .as[MeasurementWithTimestamp]
   val producerParquet = processor
     .writeStream
     .format("parquet")
@@ -56,7 +48,7 @@ object RunPopulationStream extends App {
     .format("console")
     .option("truncate", value = false)
     .option("numRows", 200)
-//    .trigger(Trigger.ProcessingTime("10 seconds"))
+    .trigger(Trigger.ProcessingTime("10 seconds"))
     .outputMode(Append)   // <-- update output mode
 
   producerConsole.start.awaitTermination
