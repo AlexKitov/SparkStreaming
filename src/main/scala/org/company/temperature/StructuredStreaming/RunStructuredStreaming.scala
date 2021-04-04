@@ -1,12 +1,13 @@
-package org.company.temperature
+package org.company.temperature.StructuredStreaming
 
-import org.company.temperature.ParseXML.parseXML
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.streaming.OutputMode.{Append, Complete, Update}
+import org.apache.spark.sql.functions.{col, collect_list, current_timestamp, explode}
+import org.apache.spark.sql.streaming.OutputMode.Append
 import org.apache.spark.sql.streaming.Trigger
-import org.company.temperature.DataModels.{CityTemperature, MeasurementWithCountry}
-import org.company.temperature.UDFs._
 import org.company.temperature.AppSparkConf.spark
+import org.company.temperature.DStreaming.ParseXML.parseXML
+import org.company.temperature.DataModels.{CityTemperature, MeasurementWithCountry}
+import UDFs.mkString2UDF
+import org.company.temperature.{AppConfig, Utils}
 
 object RunStructuredStreaming extends App {
 
@@ -14,14 +15,14 @@ object RunStructuredStreaming extends App {
 
   spark.sparkContext.setLogLevel(AppConfig.logLevel)
 
-  spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
+  spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation", "True")
 
   val streamSources = List(AppConfig.dataStream1, AppConfig.dataStream2, AppConfig.dataStream3)
   val createStructuredStream = spark.readStream.option("maxFilesPerTrigger", 2).textFile _
   val consumer = streamSources.map(createStructuredStream).reduce(_ union _)
 
   val processor = consumer
-    .filter(line=> !line.startsWith(AppConfig.skipPattern))
+    .filter(line => !line.startsWith(AppConfig.skipPattern))
     .withColumn("timestamp", current_timestamp)
     .withWatermark("timestamp", "5 seconds")
     .groupBy("timestamp")
@@ -34,14 +35,14 @@ object RunStructuredStreaming extends App {
     .map(Utils.fillMissingTemperatures)
     .map(CityTemperature(_))
 
-//  val windowSpec = Window
-//    .partitionBy(col("city"))
-//    .orderBy(col("measured_at_ts") desc_nulls_last)
-//  val dashboardProcessor = processor
-//    .withColumn("row_number", row_number over windowSpec)
-//    .filter("row_number == 1")
-//    .drop("row_number")
-//    .as[MeasurementWithTimestamp]
+  //  val windowSpec = Window
+  //    .partitionBy(col("city"))
+  //    .orderBy(col("measured_at_ts") desc_nulls_last)
+  //  val dashboardProcessor = processor
+  //    .withColumn("row_number", row_number over windowSpec)
+  //    .filter("row_number == 1")
+  //    .drop("row_number")
+  //    .as[MeasurementWithTimestamp]
   val producerParquet = processor
     .writeStream
     .format("parquet")
@@ -55,11 +56,11 @@ object RunStructuredStreaming extends App {
     .option("truncate", value = false)
     .option("numRows", 20)
     .trigger(Trigger.ProcessingTime("10 seconds"))
-    .outputMode(Append)   // <-- update output mode
+    .outputMode(Append) // <-- update output mode
 
   producerConsole.start.awaitTermination
-//  producerParquet.start.awaitTermination
+  //  producerParquet.start.awaitTermination
 
 
-  println( "TERMINATE!" )
+  println("TERMINATE!")
 }

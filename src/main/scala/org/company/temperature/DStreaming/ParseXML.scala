@@ -1,16 +1,16 @@
-package org.company.temperature
+package org.company.temperature.DStreaming
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
-
+import org.company.temperature.AppConfig
+import org.company.temperature.DataModels.Measurement
+import org.company.temperature.Utils.strToTimestamp
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 
 import java.io.BufferedOutputStream
 import scala.util.{Failure, Success, Try}
-import DataModels._
-import org.company.temperature.Utils.strToTimestamp
 
 object ParseXML {
 
@@ -24,12 +24,6 @@ object ParseXML {
       |    <measured_at_ts>2020-08-02T18:02:00</measured_at_ts>
       |</data>""".stripMargin
 
-
-  def newDateFileNameString(): String = {
-    val dtf: DateTimeFormatter = DateTimeFormat.forPattern(AppConfig.fileNameDateFormat);
-    new DateTime().toString(dtf)
-  }
-
   def parseXML(xmlStr: String)(implicit ss:SparkSession): Option[Measurement] = {
     val maybeMeasurement = parseNode(xmlStr)
     maybeMeasurement match  {
@@ -42,7 +36,7 @@ object ParseXML {
     }
   }
 
-  def parseNode(xmlStr: String): Try[Measurement] =
+  private def parseNode(xmlStr: String): Try[Measurement] =
     Try({
       val node = scala.xml.XML.loadString(xmlStr)
       val city = (node \\ "city").head.text
@@ -64,7 +58,7 @@ object ParseXML {
     })
 
   // TODO Simplify this config
-  def handleError(text: String, e: Throwable)(implicit ss:SparkSession): Unit = {
+  private def handleError(text: String, e: Throwable)(implicit ss:SparkSession): Unit = {
 //    val printer = new scala.xml.PrettyPrinter(80, 2)
     val fsConf: Configuration = new Configuration(ss.sparkContext.hadoopConfiguration)
     fsConf.setInt("dfs.blocksize", 16 * 1024 * 1024) // 16MB HDFS Block Size
@@ -82,4 +76,8 @@ object ParseXML {
     fs.close()
   }
 
+  private def newDateFileNameString(): String = {
+    val dtf: DateTimeFormatter = DateTimeFormat.forPattern(AppConfig.fileNameDateFormat);
+    new DateTime().toString(dtf)
+  }
 }
