@@ -1,18 +1,34 @@
 package org.company.temperature
 
-import org.apache.spark.streaming.{Milliseconds, Minutes, State, StateSpec}
+import org.apache.spark.streaming.{Milliseconds, State, StateSpec}
 import org.apache.spark.streaming.dstream.DStream
 import org.company.temperature.AppSparkConf.spark
-import org.company.temperature.DataModels.LocationMeasurement
+import org.company.temperature.DataModels._
 object LatestMeasurementStream {
   import spark.implicits._
 
-  def apply(temperatureStream: DStream[LocationMeasurement]): Unit = {
-    temperatureStream
+  def apply(temperatureStream: DStream[CityTemperature], populationStream: DStream[PopulationData]): Unit = {
+    val popStream = populationStream
+      .map(population => (PopulationMeasurementKey(population.city.toLowerCase.capitalize, population.updated_at_ts), population))
+    val tempJoinPopulationStream =
+      temperatureStream
+      .map(ct => (PopulationMeasurementKey(ct.city, ct.measured_at_ts), ct))
+      .leftOuterJoin(popStream)
+      .map {
+        case (_, valuePair) => {
+          val (temperature, population) = valuePair
+           MeasurementWithCountryAndPopulation(temperature, population)
+          }
+      }
+
+    val latestMeasurement =
+      tempJoinPopulationStream
       .map(measurement => (measurement.city, measurement))
       .mapWithState(stateSpec)
       .stateSnapshots()
       //      .updateStateByKey(updateStateFunction)
+
+    latestMeasurement
       .foreachRDD(rdd => {
         println("#### LATEST")
         rdd
@@ -23,17 +39,16 @@ object LatestMeasurementStream {
       })
   }
 
-  //TODO Confirm timeout works correctly with config
   private val stateSpec =
     StateSpec
-      .function(handleMeasurements _)
-      .timeout(Milliseconds(AppConfig.expireAfterMillis))
+    .function(handleMeasurements _)
+    .timeout(Milliseconds(AppConfig.expireAfterMillis))
 
   private def handleMeasurements(keyLocation: String,
                                  temperatureMeasurement: Option[LocationMeasurement],
                                  state: State[LocationMeasurement]): Option[LocationMeasurement]
   = {
-    //    println(s"Handle measurement at '$keyLocation': '$temperatureMeasurement'")
+//    println(s"Handle measurement at '$keyLocation': '$temperatureMeasurement'")
     (temperatureMeasurement, state.getOption()) match {
       case (Some(newState), None) => {
         // the 1st visit
@@ -46,7 +61,7 @@ object LatestMeasurementStream {
         Some(newState)
       }
       case _ if state.isTimingOut() => {
-        //        println("######## timeout")
+//        println("######## timeout")
         None
       }
       case _ => None

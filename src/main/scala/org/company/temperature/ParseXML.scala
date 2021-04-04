@@ -4,14 +4,13 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 
-import java.sql.Timestamp
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 
 import java.io.BufferedOutputStream
 import scala.util.{Failure, Success, Try}
-
 import DataModels._
+import org.company.temperature.Utils.strToTimestamp
 
 object ParseXML {
 
@@ -25,13 +24,6 @@ object ParseXML {
       |    <measured_at_ts>2020-08-02T18:02:00</measured_at_ts>
       |</data>""".stripMargin
 
-
-
-  def strToTimestamp(dateTime: String): Timestamp = {
-    val dtf: DateTimeFormatter = DateTimeFormat.forPattern(AppConfig.xmlDateFormat);
-    val jodatime: DateTime = dtf.parseDateTime(dateTime);
-    new Timestamp(jodatime.getMillis)
-  }
 
   def newDateFileNameString(): String = {
     val dtf: DateTimeFormatter = DateTimeFormat.forPattern(AppConfig.fileNameDateFormat);
@@ -55,7 +47,7 @@ object ParseXML {
       val node = scala.xml.XML.loadString(xmlStr)
       val city = (node \\ "city").head.text
       val tempAndUnit = (node \\ "temperature")
-      val measured_at_ts = strToTimestamp((node \\ "measured_at_ts").head.text)
+      val measured_at_ts = strToTimestamp((node \\ "measured_at_ts").head.text, AppConfig.xmlDateFormat)
 
       val tempMap: Map[String, Option[Double]] = (tempAndUnit \\ "value")
         .map(

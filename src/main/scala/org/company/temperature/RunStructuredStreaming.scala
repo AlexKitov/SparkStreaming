@@ -16,9 +16,9 @@ object RunStructuredStreaming extends App {
 
   spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
-  val consumer = spark.readStream
-    .option("maxFilesPerTrigger", 2)
-    .textFile(AppConfig.dataPathString)
+  val streamSources = List(AppConfig.dataStream1, AppConfig.dataStream2, AppConfig.dataStream3)
+  val createStructuredStream = spark.readStream.option("maxFilesPerTrigger", 2).textFile _
+  val consumer = streamSources.map(createStructuredStream).reduce(_ union _)
 
   val processor = consumer
     .filter(line=> !line.startsWith(AppConfig.skipPattern))

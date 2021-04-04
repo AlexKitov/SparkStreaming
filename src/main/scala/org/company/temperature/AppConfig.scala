@@ -11,7 +11,7 @@ object AppConfig {
   private val config = ConfigFactory.load()
 
   val configProvider = config.getConfig(appEnv)
-                .withFallback(config.getConfig("default"))
+                       .withFallback(config.getConfig("default"))
   println(configProvider.isResolved)
 
   val logLevel = configProvider.getString("spark.log.level")
@@ -29,8 +29,17 @@ object AppConfig {
   val skipPattern = configProvider.getString("xml.skip.pattern")
   println(skipPattern)
 
-  val dataPathString = configProvider.getString("hdfs.path.dataPath")
-  println(dataPathString)
+  val dataStream1 = configProvider.getString("hdfs.path.dataStream1")
+  println(dataStream1)
+
+  val dataStream2 = configProvider.getString("hdfs.path.dataStream2")
+  println(dataStream2)
+
+  val dataStream3 = configProvider.getString("hdfs.path.dataStream3")
+  println(dataStream3)
+
+  val populationStream = configProvider.getString("hdfs.path.populationStream")
+  println(populationStream)
 
   val failedPath = configProvider.getString("hdfs.path.failPath")
   println(failedPath)
@@ -55,5 +64,8 @@ object AppConfig {
 
   val expireAfterMillis = configProvider.getLong("out.expireAfterMillis")
   println(expireAfterMillis)
+
+  val jsonDateFormat = configProvider.getString("json.in.date.format")
+  println(jsonDateFormat)
 
 }

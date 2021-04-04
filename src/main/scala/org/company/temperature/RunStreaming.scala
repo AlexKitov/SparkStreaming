@@ -1,11 +1,13 @@
 package org.company.temperature
 
-import org.apache.spark.sql.{SaveMode, SparkSession}
-import org.apache.spark.streaming.{Seconds, StreamingContext}
-import org.company.temperature.ParseXML.parseXML
-import DataModels._
+import org.apache.spark.sql.SaveMode
 import org.apache.spark.streaming.dstream.DStream
+import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.AppSparkConf.spark
+import org.company.temperature.DataModels.{CityTemperature, MeasurementWithCountry, Population}
+import org.company.temperature.ParseXML.parseXML
+import org.json4s.DefaultFormats
+import org.json4s.jackson.JsonMethods.parse
 
 object RunStreaming extends App {
 
@@ -16,9 +18,19 @@ object RunStreaming extends App {
 
 //  val lines = ssc.socketStream("localhost", 9999) # producer @nc -lk 9999
   //TODO handle xml._COPYING_ case
-  val consumer: DStream[String] = ssc.textFileStream(AppConfig.dataPathString)
+  val streamSources = List(AppConfig.dataStream1, AppConfig.dataStream2, AppConfig.dataStream3)
 
-  val processor = consumer
+  val consumer = streamSources.map(ssc.textFileStream).reduce(_ union _)
+
+  implicit val formats: DefaultFormats.type = DefaultFormats
+  val populationConsumer = ssc.textFileStream(AppConfig.populationStream)
+  val populationProcessor: DStream[Population] = populationConsumer
+    .map((jsonStr: String) => parse(jsonStr).extract[Population])
+    .cache
+
+  populationProcessor.print
+
+  val processor: DStream[CityTemperature] = consumer
     .filter(line => !line.startsWith(AppConfig.skipPattern))
     .reduce(_ + " " + _)
     .flatMap(_.split("<data>").toList)
@@ -44,7 +56,7 @@ object RunStreaming extends App {
     }
   })
 
-  LatestMeasurementStream(processor)
+  LatestMeasurementStream(processor, populationProcessor)
 
   ssc.start()
   ssc.awaitTermination()
