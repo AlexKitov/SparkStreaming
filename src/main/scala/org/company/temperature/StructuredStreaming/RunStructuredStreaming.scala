@@ -13,10 +13,6 @@ object RunStructuredStreaming extends App {
 
   import spark.implicits._
 
-  spark.sparkContext.setLogLevel(AppConfig.logLevel)
-
-  spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation", "True")
-
   val streamSources = List(AppConfig.dataStream1, AppConfig.dataStream2, AppConfig.dataStream3)
   val createStructuredStream = spark.readStream.option("maxFilesPerTrigger", 2).textFile _
   val consumer = streamSources.map(createStructuredStream).reduce(_ union _)

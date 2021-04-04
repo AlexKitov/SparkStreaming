@@ -1,17 +1,16 @@
 package org.company.temperature.StructuredStreaming
 
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.streaming.OutputMode.Append
 import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.types.StructType
 import org.company.temperature.AppConfig
 import org.company.temperature.AppSparkConf.spark
+import org.company.temperature.DataModels.{Population, PopulationData}
 
 object RunPopulationStructuredStream extends App {
 
-  spark.sparkContext.setLogLevel(AppConfig.logLevel)
-
-  spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation", "True")
+  import spark.implicits._
 
   val populationSchema = new StructType()
     .add("city", "string")
@@ -29,7 +28,15 @@ object RunPopulationStructuredStream extends App {
 
   val consumer: DataFrame = streamSources.map(createPopulationStream).reduce(_ union _)
 
-  val processor = consumer
+  val cleanUpPopulation = (population: Population) => {
+    Population(
+      population.city.toLowerCase.capitalize,
+      population.country.toLowerCase.capitalize,
+      population.population_M ,
+      population.updated_at_ts
+    )
+  }
+  val processor: Dataset[PopulationData] = consumer.as[PopulationData].map(cleanUpPopulation)
 
   val producerParquet = processor
     .writeStream
