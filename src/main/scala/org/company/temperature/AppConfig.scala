@@ -65,4 +65,7 @@ object AppConfig {
   val expireAfterMillis = configProvider.getLong("out.expireAfterMillis")
   println(expireAfterMillis)
 
+  val jsonDateFormat = configProvider.getString("json.in.date.format")
+  println(jsonDateFormat)
+
 }

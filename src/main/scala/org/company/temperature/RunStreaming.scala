@@ -1,11 +1,13 @@
 package org.company.temperature
 
 import org.apache.spark.sql.SaveMode
-import org.apache.spark.streaming.{Seconds, StreamingContext}
-import org.company.temperature.ParseXML.parseXML
-import DataModels._
 import org.apache.spark.streaming.dstream.DStream
+import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.company.temperature.AppSparkConf.spark
+import org.company.temperature.DataModels.{CityTemperature, MeasurementWithCountry, Population}
+import org.company.temperature.ParseXML.parseXML
+import org.json4s.DefaultFormats
+import org.json4s.jackson.JsonMethods.parse
 
 object RunStreaming extends App {
 
@@ -20,7 +22,15 @@ object RunStreaming extends App {
 
   val consumer = streamSources.map(ssc.textFileStream).reduce(_ union _)
 
-  val processor = consumer
+  implicit val formats: DefaultFormats.type = DefaultFormats
+  val populationConsumer = ssc.textFileStream(AppConfig.populationStream)
+  val populationProcessor: DStream[Population] = populationConsumer
+    .map((jsonStr: String) => parse(jsonStr).extract[Population])
+    .cache
+
+  populationProcessor.print
+
+  val processor: DStream[CityTemperature] = consumer
     .filter(line => !line.startsWith(AppConfig.skipPattern))
     .reduce(_ + " " + _)
     .flatMap(_.split("<data>").toList)
@@ -46,7 +56,7 @@ object RunStreaming extends App {
     }
   })
 
-  LatestMeasurementStream(processor)
+  LatestMeasurementStream(processor, populationProcessor)
 
   ssc.start()
   ssc.awaitTermination()

@@ -3,13 +3,18 @@ package org.company.temperature
 import org.apache.spark.streaming.{Milliseconds, Minutes, State, StateSpec}
 import org.apache.spark.streaming.dstream.DStream
 import org.company.temperature.AppSparkConf.spark
-import org.company.temperature.DataModels.LocationMeasurement
+import org.company.temperature.DataModels._
 import AppSparkConf.logger
 object LatestMeasurementStream {
   import spark.implicits._
 
-  def apply(temperatureStream: DStream[LocationMeasurement]): Unit = {
+  def apply(temperatureStream: DStream[CityTemperature], populationStream: DStream[PopulationData]): Unit = {
+    val popStream = populationStream
+      .map(population => (PopulationMeasurementKey(population.city.toLowerCase.capitalize, population.updated_at_ts), population))
     temperatureStream
+      .map(ct => (PopulationMeasurementKey(ct.city, ct.measured_at_ts), ct))
+      .leftOuterJoin(popStream)
+      .map{case (_, valuePair) => MeasurementWithCountryAndPopulation(valuePair._1, valuePair._2)}
       .map(measurement => (measurement.city, measurement))
       .mapWithState(stateSpec)
       .stateSnapshots()
