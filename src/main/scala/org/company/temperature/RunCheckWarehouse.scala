@@ -10,7 +10,7 @@ object RunCheckWarehouse extends App {
 
   val storage = spark.read
     .parquet(AppConfig.temperaturePath)
-    .as[LocationMeasurement]
+    .as[CityTemperature]
     .cache()
 
   storage.show
