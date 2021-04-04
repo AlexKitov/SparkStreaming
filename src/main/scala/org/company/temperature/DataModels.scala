@@ -1,7 +1,6 @@
 package org.company.temperature
 
-import org.joda.time.DateTime
-import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
+import org.company.temperature.Utils.strToTimestamp
 
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
@@ -19,13 +18,7 @@ object DataModels {
   case class PopulationMeasurementKey(city: String, date: Timestamp)
   object PopulationMeasurementKey{
     def apply(city: String, date: String): PopulationMeasurementKey = {
-      // TODO refactor wit parser xml
-      def strToTimestamp(dateTime: String): Timestamp = {
-        val dtf: DateTimeFormatter = DateTimeFormat.forPattern(AppConfig.jsonDateFormat)
-        val jodatime: DateTime = dtf.parseDateTime(dateTime);
-        new Timestamp(jodatime.getMillis)
-      }
-      val timestamp = strToTimestamp(date)
+      val timestamp = strToTimestamp(date, AppConfig.jsonDateFormat)
       PopulationMeasurementKey(city.toLowerCase.capitalize, timestamp)
     }
 //

@@ -1,6 +1,10 @@
 package org.company.temperature
 
 import org.company.temperature.DataModels.MeasurementWithCountry
+import org.joda.time.DateTime
+import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
+
+import java.sql.Timestamp
 
 object Utils {
 
@@ -41,4 +45,9 @@ object Utils {
     )
   }
 
+  def strToTimestamp(dateTime: String, dateFormat: String): Timestamp = {
+    val dtf: DateTimeFormatter = DateTimeFormat.forPattern(dateFormat)
+    val jodatime: DateTime = dtf.parseDateTime(dateTime);
+    new Timestamp(jodatime.getMillis)
+  }
 }
