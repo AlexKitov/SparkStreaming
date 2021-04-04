@@ -21,10 +21,6 @@ object DataModels {
       val timestamp = strToTimestamp(date, AppConfig.jsonDateFormat)
       PopulationMeasurementKey(city.toLowerCase.capitalize, timestamp)
     }
-//
-//    def apply(city: String, date: Timestamp): PopulationMeasurementKey = {
-//      PopulationMeasurementKey(city.toLowerCase.capitalize, date)
-//    }
   }
 
   case class MeasurementWithCountry(country: Option[String], city: String

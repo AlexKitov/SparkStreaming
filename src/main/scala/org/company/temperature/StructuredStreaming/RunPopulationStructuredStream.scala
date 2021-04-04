@@ -1,22 +1,16 @@
-package org.company.temperature
+package org.company.temperature.StructuredStreaming
 
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.streaming.OutputMode.Append
 import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.types.StructType
+import org.company.temperature.AppConfig
 import org.company.temperature.AppSparkConf.spark
-import org.company.temperature.DataModels.{CityTemperature, MeasurementWithCountry}
-import org.company.temperature.ParseXML.parseXML
-import org.company.temperature.UDFs._
+import org.company.temperature.DataModels.{Population, PopulationData}
 
 object RunPopulationStructuredStream extends App {
 
   import spark.implicits._
-
-  spark.sparkContext.setLogLevel(AppConfig.logLevel)
-
-  spark.conf.set("spark.sql.streaming.forceDeleteTempCheckpointLocation","True")
 
   val populationSchema = new StructType()
     .add("city", "string")
@@ -25,7 +19,7 @@ object RunPopulationStructuredStream extends App {
     .add("updated_at_ts", "timestamp")
 
   val streamSources = List(AppConfig.populationStream)
-  val createPopulationStream = (path :String) => spark
+  val createPopulationStream = (path: String) => spark
     .readStream
     .format("json")
     .option("maxFilesPerTrigger", 10)
@@ -34,7 +28,15 @@ object RunPopulationStructuredStream extends App {
 
   val consumer: DataFrame = streamSources.map(createPopulationStream).reduce(_ union _)
 
-  val processor = consumer
+  val cleanUpPopulation = (population: Population) => {
+    Population(
+      population.city.toLowerCase.capitalize,
+      population.country.toLowerCase.capitalize,
+      population.population_M ,
+      population.updated_at_ts
+    )
+  }
+  val processor: Dataset[PopulationData] = consumer.as[PopulationData].map(cleanUpPopulation)
 
   val producerParquet = processor
     .writeStream
@@ -49,11 +51,11 @@ object RunPopulationStructuredStream extends App {
     .option("truncate", value = false)
     .option("numRows", 200)
     .trigger(Trigger.ProcessingTime("10 seconds"))
-    .outputMode(Append)   // <-- update output mode
+    .outputMode(Append) // <-- update output mode
 
   producerConsole.start.awaitTermination
-//  producerParquet.start.awaitTermination
+  //  producerParquet.start.awaitTermination
 
 
-  println( "TERMINATE!" )
+  println("TERMINATE!")
 }

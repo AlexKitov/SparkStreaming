@@ -1,18 +1,27 @@
-package org.company.temperature
+package org.company.temperature.DStreaming
 
-import org.apache.spark.streaming.{Milliseconds, State, StateSpec}
 import org.apache.spark.streaming.dstream.DStream
+import org.apache.spark.streaming.{Milliseconds, State, StateSpec}
+import org.company.temperature.AppConfig
 import org.company.temperature.AppSparkConf.spark
 import org.company.temperature.DataModels._
+
 object LatestMeasurementStream {
   import spark.implicits._
 
   def apply(temperatureStream: DStream[CityTemperature], populationStream: DStream[PopulationData]): Unit = {
     val popStream = populationStream
-      .map(population => (PopulationMeasurementKey(population.city.toLowerCase.capitalize, population.updated_at_ts), population))
+      .map(population => {
+        val key = PopulationMeasurementKey(population.city.toLowerCase.capitalize, population.updated_at_ts)
+        (key, population)
+      })
+
     val tempJoinPopulationStream =
       temperatureStream
-      .map(ct => (PopulationMeasurementKey(ct.city, ct.measured_at_ts), ct))
+      .map(ct => {
+        val key = PopulationMeasurementKey(ct.city, ct.measured_at_ts)
+        (key, ct)
+      })
       .leftOuterJoin(popStream)
       .map {
         case (_, valuePair) => {
@@ -23,18 +32,18 @@ object LatestMeasurementStream {
 
     val latestMeasurement =
       tempJoinPopulationStream
-      .map(measurement => (measurement.city, measurement))
-      .mapWithState(stateSpec)
-      .stateSnapshots()
+        .map(measurement => (measurement.city, measurement))
+        .mapWithState(stateSpec)
+        .stateSnapshots()
+        .cache
       //      .updateStateByKey(updateStateFunction)
 
     latestMeasurement
       .foreachRDD(rdd => {
-        println("#### LATEST")
+        println("#### LATEST DATA TABLE")
         rdd
           .map{case (location, locationMeasurement) => locationMeasurement}
           .toDS()
-          .persist
           .show
       })
   }
