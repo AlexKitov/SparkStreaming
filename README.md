@@ -34,8 +34,9 @@
     Run ```sh deletestreams.sh```, ```restart the app``` and then copy the files again ```sh addstreams.sh``` 
 
 6. TODO
-    - finish requirement_5
+    - polish requirement_5 implementation
     - add tests
+    - add proper logging (not println)
     - setup Kafka connect (link???) to pre-process the *.xml files (if data comes as files and not new line delimited xml stream)
     - finish StructuredStreaming (currently stuck on limitation that Dataset can only have 1 agg, and it is used to parse the multi line xmls)
     - setup docker hadoop and connect to remote (container) HDFS (currently stuck on EOF Exception)
