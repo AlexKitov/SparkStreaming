@@ -16,7 +16,7 @@
 
     - execute ```sh init.sh``` to initialise the needed folders in ```hdfs```
     - run the app:
-      Option 1 :
+      - Option 1 :
         - submit the job
           ```
           spark-submit \
@@ -24,7 +24,7 @@
               --master local[*] \
               target/SparkStreaming-1.0-SNAPSHOT.jar
           ```
-      Option 2 :
+      - Option 2 :
         - start ```org.company.temperature.DStreaming.RunApp``` object from IDE
     - copy files from local resources to trigger the DStream ```sh addstreams.sh```
     - before next run of the app delete the files, so DStream can detect change on next copy ```sh deletestreams.sh```
