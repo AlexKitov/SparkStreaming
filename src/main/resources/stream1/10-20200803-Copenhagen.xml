@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data>
+    <city>Copenhagen</city>
+    <temperature>
+        <value unit="celsius">28</value>
+        <value unit="fahrenheit">82.4</value>
+    </temperature>
+    <measured_at_ts>2020-08-03T20:00:00</measured_at_ts>
+</data>
