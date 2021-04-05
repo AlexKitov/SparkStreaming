@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data>
+    <city>London</city>
+    <temperature>
+        <value unit="celsius">25</value>
+        <value unit="fahrenheit">77</value>
+    </temperature>
+    <measured_at_ts>2020-08-02T18:02:00</measured_at_ts>
+</data>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<data>
+<city>London</city>
+<temperature>
+    <value unit="celsius">55</value>
+    <value unit="fahrenheit">177</value>
+</temperature>
+<measured_at_ts>2020-08-02T18:02:00</measured_at_ts>
+</data>

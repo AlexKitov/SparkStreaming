@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data>
+    <city>London</city>
+    <temperature>
+        <value unit="celsius">26.5asd</value>
+    </temperature>
+    <measured_at_ts>2020-08-02T20:04:00</measured_at_ts>
+</data>
