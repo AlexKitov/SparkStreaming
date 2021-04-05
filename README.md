@@ -1,12 +1,32 @@
 # Spark Streaming
 
-1. Basic streaming from files
+1. Basic streaming from files:
+    org.company.temperature.DStreaming contains the solution for req_1 to req_4
 
 2. Environment
 - there is a HDFS running ( config address in .src/main/resources/application.conf ) defaults to ```hdfs://localhost:9000/```
-- there are data files in HDFS ```temperatures``` folder ( ```hdfs dfs -ls /temperatures```)
-- there is an empty folder ```test``` (```hdfs dfs -ls /test```)
 
-3. Run the app
-- copy files to see result - ```hdfs dfs -cp /temperatures/*2020080* /test```
-- remove files before next run - ```hdfs dfs -rm -r /test/*```
+3. Build the app
+- clone the repo ```git clone https://github.com/AlexKitov/SparkStreaming.git```
+- cd SparkStreaming
+- mvn clean
+- mvn package
+- submit the job 
+```spark-submit \
+  --class org.company.temperature.DStreaming.RunApp \
+  --master local[*] \
+  target/SparkStreaming-1.0-SNAPSHOT.jar
+```
+
+
+4. Run the app
+- execute ```sh init.sh``` to initialise the needed folders in ```hdfs```
+- start ```org.company.temperature.DStreaming.RunApp``` object 
+- copy files from local resources to trigger the DStream ```sh addstreams.sh```
+- before next run of the app delete the files, so DStream can detect change on next copy ```sh deletestreams.sh```
+
+5. TODO
+- add tests
+- setup Kafka connect (link???) to pre-process the *.xml files (if data comes as files and not new line delimited xml stream)
+- finish StructuredStreaming (currently stuck on limitation that Dataset can only have 1 agg, and it is used to parse the multi line xmls)
+- setup docker hadoop and connect to remote (container) HDFS (currently stuck on EOF Exception)
