@@ -18,11 +18,12 @@
     - run the app:
       Option 1 :
         - submit the job
-            ```spark-submit \
+          ```
+          spark-submit \
               --class org.company.temperature.DStreaming.RunApp \
               --master local[*] \
               target/SparkStreaming-1.0-SNAPSHOT.jar
-            ```
+          ```
       Option 2 :
         - start ```org.company.temperature.DStreaming.RunApp``` object from IDE
     - copy files from local resources to trigger the DStream ```sh addstreams.sh```
@@ -33,6 +34,7 @@
     Run ```sh deletestreams.sh```, ```restart the app``` and then copy the files again ```sh addstreams.sh``` 
 
 6. TODO
+    - finish requirement_5
     - add tests
     - setup Kafka connect (link???) to pre-process the *.xml files (if data comes as files and not new line delimited xml stream)
     - finish StructuredStreaming (currently stuck on limitation that Dataset can only have 1 agg, and it is used to parse the multi line xmls)
