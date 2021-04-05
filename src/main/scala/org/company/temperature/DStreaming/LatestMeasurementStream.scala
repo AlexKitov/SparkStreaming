@@ -9,55 +9,64 @@ import org.company.temperature.DataModels._
 object LatestMeasurementStream {
   import spark.implicits._
 
-  def apply(temperatureStream: DStream[CityTemperature], populationStream: DStream[PopulationData]): Unit = {
+  def latestMeasurement(temperatureStream: DStream[CityTemperature], populationStream: DStream[PopulationData])
+  : DStream[(String, LocationMeasurement)] = {
     val popStream = populationStream
       .map(population => {
         val key = PopulationMeasurementKey(population.city.toLowerCase.capitalize, population.updated_at_ts)
         (key, population)
       })
+      .cache
 
     val tempJoinPopulationStream =
       temperatureStream
-      .map(ct => {
-        val key = PopulationMeasurementKey(ct.city, ct.measured_at_ts)
-        (key, ct)
-      })
-      .leftOuterJoin(popStream)
-      .map {
-        case (_, valuePair) => {
-          val (temperature, population) = valuePair
-           MeasurementWithCountryAndPopulation(temperature, population)
+        .map(ct => {
+          val key = PopulationMeasurementKey(ct.city, ct.measured_at_ts)
+          (key, ct)
+        })
+        .cache
+        .leftOuterJoin(popStream)
+
+    val tempWithCountryAndPopulation =
+      tempJoinPopulationStream
+        .map {
+          case (_, valuePair) => {
+            val (temperature, population) = valuePair
+            MeasurementWithCountryAndPopulation(temperature, population)
           }
-      }
+        }
+        .map(measurement => (measurement.city, measurement))
+        .cache
 
     val latestMeasurement =
-      tempJoinPopulationStream
-        .map(measurement => (measurement.city, measurement))
+      tempWithCountryAndPopulation
         .mapWithState(stateSpec)
         .stateSnapshots()
+        .map{case (location, locationMeasurement) => locationMeasurement}
         .cache
-      //      .updateStateByKey(updateStateFunction)
+    //      .updateStateByKey(updateStateFunction)
 
     latestMeasurement
       .foreachRDD(rdd => {
         println("#### LATEST DATA TABLE")
         rdd
-          .map{case (location, locationMeasurement) => locationMeasurement}
           .toDS()
           .show
       })
+
+    tempWithCountryAndPopulation
   }
 
   private val stateSpec =
     StateSpec
-    .function(handleMeasurements _)
-    .timeout(Milliseconds(AppConfig.expireAfterMillis))
+      .function(handleMeasurements _)
+      .timeout(Milliseconds(AppConfig.expireAfterMillis))
 
   private def handleMeasurements(keyLocation: String,
                                  temperatureMeasurement: Option[LocationMeasurement],
                                  state: State[LocationMeasurement]): Option[LocationMeasurement]
   = {
-//    println(s"Handle measurement at '$keyLocation': '$temperatureMeasurement'")
+    //    println(s"Handle measurement at '$keyLocation': '$temperatureMeasurement'")
     (temperatureMeasurement, state.getOption()) match {
       case (Some(newState), None) => {
         // the 1st visit
@@ -70,7 +79,7 @@ object LatestMeasurementStream {
         Some(newState)
       }
       case _ if state.isTimingOut() => {
-//        println("######## timeout")
+        //        println("######## timeout")
         None
       }
       case _ => None

@@ -15,5 +15,4 @@ object PopulationDStream{
 
   val populationStream: DStream[Population] = populationConsumer
     .map(jsonStr => parse(jsonStr).extract[Population])
-    .cache
 }
